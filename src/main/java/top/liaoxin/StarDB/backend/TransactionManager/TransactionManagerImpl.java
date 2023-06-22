@@ -39,8 +39,8 @@ public class TransactionManagerImpl implements TransactionManager{
 
     /*
     * 检查XID文件是否合法
-    * 读取xidHeader中的
     * */
+
     private void checkXIDCounter() {
         long fileLen = 0;
         try {
@@ -133,6 +133,7 @@ public class TransactionManagerImpl implements TransactionManager{
         ByteBuffer buf = ByteBuffer.wrap(new byte[XID_FIELD_LENGTH]);
         try {
             fc.position(offset);
+            // 从通道中读取的内容储存到buf中
             fc.read(buf);
         }catch (IOException e) {
             Panic.panic(e);
