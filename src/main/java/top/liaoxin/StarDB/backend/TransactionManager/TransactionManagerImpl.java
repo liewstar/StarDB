@@ -127,27 +127,48 @@ public class TransactionManagerImpl implements TransactionManager{
         }
     }
 
-    public void commit(long xid) {
+    // 检测xid事务是否处于status状态
+    private boolean checkXID(long xid, byte status) {
+        long offset = getXidPosition(xid);
+        ByteBuffer buf = ByteBuffer.wrap(new byte[XID_FIELD_LENGTH]);
+        try {
+            fc.position(offset);
+            fc.read(buf);
+        }catch (IOException e) {
+            Panic.panic(e);
+        }
+        return buf.array()[0] == status;
+    }
 
+    public void commit(long xid) {
+        updateXID(xid, FIELD_TRANS_COMMITTED);
     }
 
     public void abort(long xid) {
-
+        updateXID(xid, FIELD_TRANS_ABORTED);
     }
 
     public boolean isActive(long xid) {
-        return false;
+        if(xid == SUPPER_XID) return true;
+        return checkXID(xid, FIELD_TRANS_ACTIVE);
     }
 
     public boolean isCommitted(long xid) {
-        return false;
+        if(xid == SUPPER_XID) return true;
+        return checkXID(xid, FIELD_TRANS_COMMITTED);
     }
 
     public boolean isAbort(long xid) {
-        return false;
+        if(xid == SUPPER_XID) return true;
+        return checkXID(xid, FIELD_TRANS_ABORTED);
     }
 
     public void close() {
-
+        try {
+            fc.close();
+            file.close();
+        }catch (Exception e) {
+            Panic.panic(e);
+        }
     }
 }
