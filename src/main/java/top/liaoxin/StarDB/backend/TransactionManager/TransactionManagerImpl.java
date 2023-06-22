@@ -60,7 +60,7 @@ public class TransactionManagerImpl implements TransactionManager{
             Panic.panic(e);
         }
         this.xidCounter = Parser.parseLong(bf.array());
-        // 返回下一个xid文件的起始位置
+        // 返回下一个xid文件的起始位置(理论长度)
         long end = getXidPosition(this.xidCounter + 1);
         // 文件的长度应该等于所有已记录xid所占用的空间总和
         if(end != fileLen) {
@@ -73,8 +73,58 @@ public class TransactionManagerImpl implements TransactionManager{
         // xid状态储存的位置
         return LEN_XID_HEADER_LENGTH + (xid-1) * XID_FIELD_LENGTH;
     }
+
+    // 开始一个事务，并且返回xid
     public long begin() {
-        return 0;
+        counterLock.lock();
+        try {
+            long xid = xidCounter + 1;
+            updateXID(xid, FIELD_TRANS_ACTIVE);
+            incrXIDCounter();
+            return xid;
+        } finally {
+            counterLock.unlock();
+        }
+    }
+
+    // 将xid加一，并且更新XID Header
+    private void incrXIDCounter() {
+        xidCounter ++;
+        ByteBuffer buf = ByteBuffer.wrap(Parser.long2byte(xidCounter));
+        try {
+            fc.position(0);
+            fc.write(buf);
+        }catch (IOException e) {
+            Panic.panic(e);
+        }
+        // 强制同步缓存内容到文件中
+        try {
+            // 参数是是否同步文件的元数据，例如最后修改时间等
+            fc.force(false);
+        } catch (IOException e) {
+            Panic.panic(e);
+        }
+    }
+
+    // 更新xid事务的状态为status
+    private void updateXID(long xid, byte status) {
+        long offset = getXidPosition(xid);
+        byte[] tmp = new byte[XID_FIELD_LENGTH];
+        tmp[0] = status;
+        ByteBuffer buf = ByteBuffer.wrap(tmp);
+        try {
+            fc.position(offset);
+            fc.write(buf);
+        } catch (IOException e) {
+            Panic.panic(e);
+        }
+        // 强制同步缓存内容到文件中
+        try {
+            // 参数是是否同步文件的元数据，例如最后修改时间等
+            fc.force(false);
+        } catch (IOException e) {
+            Panic.panic(e);
+        }
     }
 
     public void commit(long xid) {

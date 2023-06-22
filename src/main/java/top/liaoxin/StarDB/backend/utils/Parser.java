@@ -8,4 +8,8 @@ public class Parser {
         ByteBuffer buffer = ByteBuffer.wrap(buf, 0, 8);
         return buffer.getLong();
     }
+
+    public static byte[] long2byte(long values) {
+        return ByteBuffer.allocate(Long.SIZE / Byte.SIZE).putLong(values).array();
+    }
 }
